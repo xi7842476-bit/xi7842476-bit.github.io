@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>电子比荷不确定度计算器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface-2: #eef3f6;
+      --ink: #15212c;
+      --muted: #637180;
+      --line: #d8e0e6;
+      --accent: #0f8f8c;
+      --accent-dark: #076c6b;
+      --accent-soft: #d9f1ef;
+      --warm: #d26a39;
+      --blue: #2f63b7;
+      --shadow: 0 18px 48px rgba(30, 42, 56, 0.12);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 36px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(24px, 3vw, 34px);
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .formula {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 8px 24px rgba(30, 42, 56, 0.06);
+      font-family: "Cambria Math", "Times New Roman", serif;
+      font-size: 22px;
+      color: #101820;
+    }
+
+    .formula .frac {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.05;
+      vertical-align: middle;
+    }
+
+    .formula .frac span:first-child {
+      border-bottom: 1px solid currentColor;
+      padding: 0 7px 2px;
+    }
+
+    .formula .frac span:last-child {
+      padding-top: 2px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    button {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 8px 13px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: var(--accent-dark);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(310px, 0.92fr) minmax(360px, 1.08fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    section {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .method {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .panel-body {
+      padding: 18px;
+    }
+
+    .input-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(92px, 0.35fr);
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 680;
+      font-size: 14px;
+    }
+
+    label small {
+      color: var(--muted);
+      font-weight: 500;
+      overflow-wrap: anywhere;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px 11px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    textarea {
+      min-height: 104px;
+      resize: vertical;
+      font-family: "Cascadia Mono", Consolas, monospace;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 143, 140, 0.15);
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .calc-note {
+      margin-top: 16px;
+      padding: 12px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      color: #17413f;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 13px;
+    }
+
+    .hero-result {
+      display: grid;
+      gap: 7px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .hero-result .label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .result-line {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 32px);
+      font-weight: 780;
+      color: var(--accent-dark);
+      overflow-wrap: anywhere;
+    }
+
+    .result-line small {
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 620;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: #fff;
+    }
+
+    .stat span {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--ink);
+      font-size: 17px;
+      overflow-wrap: anywhere;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .bar-item {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) 58px;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: #e8edf1;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+      transition: width 0.18s ease;
+    }
+
+    .bar-item:nth-child(2) .bar-fill {
+      background: var(--warm);
+    }
+
+    .bar-item:nth-child(3) .bar-fill {
+      background: var(--blue);
+    }
+
+    .error {
+      display: none;
+      margin: 0 18px 18px;
+      padding: 12px;
+      border: 1px solid #f0c5b8;
+      border-radius: var(--radius);
+      background: #fff2ee;
+      color: #8e321c;
+      font-size: 14px;
+    }
+
+    .toast {
+      min-height: 20px;
+      margin-top: 10px;
+      color: var(--accent-dark);
+      font-size: 13px;
+    }
+
+    sup {
+      line-height: 0;
+    }
+
+    @media (max-width: 820px) {
+      .app {
+        width: min(100% - 20px, 680px);
+        padding-top: 18px;
+      }
+
+      header,
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        justify-content: flex-start;
+      }
+
+      .method {
+        text-align: left;
+      }
+
+      .section-title {
+        align-items: start;
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .field-row,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .bar-item {
+        grid-template-columns: 58px minmax(0, 1fr) 48px;
+      }
+
+      .formula {
+        font-size: 19px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>电子比荷不确定度计算器</h1>
+        <div class="formula" aria-label="电子比荷计算公式">
+          <span class="frac"><span>e</span><span>m</span></span>
+          <span>= 9.88×10<sup>6</sup> ·</span>
+          <span class="frac"><span>U</span><span>D<sup>2</sup>I<sup>2</sup></span></span>
+          <span>C·kg<sup>-1</sup></span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" id="sampleBtn">载入示例</button>
+        <button type="button" id="clearBtn">清空数据</button>
+        <button type="button" class="primary" id="copyBtn">复制结果</button>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="inputTitle">
+        <div class="section-title">
+          <h2 id="inputTitle">测量数据</h2>
+          <p class="method">U、I 按 B 类；D 按 A+B 类</p>
+        </div>
+        <div class="panel-body">
+          <div class="input-grid">
+            <div class="field-row">
+              <div class="field">
+                <label for="voltage">加速电压 U <small>V</small></label>
+                <input id="voltage" inputmode="decimal" value="120" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="voltageLimit">ΔU <small>V</small></label>
+                <input id="voltageLimit" inputmode="decimal" value="0.5" autocomplete="off">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="current">励磁电流 I <small>A</small></label>
+                <input id="current" inputmode="decimal" value="1.50" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="currentLimit">ΔI <small>A</small></label>
+                <input id="currentLimit" inputmode="decimal" value="0.005" autocomplete="off">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="diameters">电子束直径 D <small>多次测量</small></label>
+                <textarea id="diameters" spellcheck="false">5.46, 5.50, 5.48, 5.52, 5.49</textarea>
+              </div>
+              <div class="field">
+                <label for="diameterUnit">D 单位 <small>&nbsp;</small></label>
+                <select id="diameterUnit">
+                  <option value="m">m</option>
+                  <option value="cm" selected>cm</option>
+                  <option value="mm">mm</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="diameterLimit">ΔD <small id="diameterLimitUnit">cm</small></label>
+                <input id="diameterLimit" inputmode="decimal" value="0.05" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="coverage">覆盖因子 k <small>&nbsp;</small></label>
+                <input id="coverage" inputmode="decimal" value="2" autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <p class="calc-note">
+            B 类误差限按均匀分布换算：u<sub>B</sub>=Δ/√3；合成传播：
+            u<sub>c</sub>/(e/m)=√[(u(U)/U)<sup>2</sup>+(2u(D)/D)<sup>2</sup>+(2u(I)/I)<sup>2</sup>]。
+          </p>
+          <p class="toast" id="toast" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section aria-labelledby="resultTitle">
+        <div class="section-title">
+          <h2 id="resultTitle">计算结果</h2>
+          <p class="method">结果单位：C·kg<sup>-1</sup></p>
+        </div>
+
+        <div class="hero-result">
+          <p class="label">最终表示</p>
+          <p class="result-line" id="finalResult">--</p>
+          <p class="label" id="compactResult">--</p>
+        </div>
+
+        <div class="panel-body">
+          <div class="stats">
+            <div class="stat">
+              <span>电子比荷 e/m</span>
+              <strong id="emValue">--</strong>
+            </div>
+            <div class="stat">
+              <span>扩展不确定度 U<sub>k</sub></span>
+              <strong id="expandedValue">--</strong>
+            </div>
+            <div class="stat">
+              <span>D 平均值</span>
+              <strong id="dMean">--</strong>
+            </div>
+            <div class="stat">
+              <span>u(D)</span>
+              <strong id="uD">--</strong>
+            </div>
+            <div class="stat">
+              <span>u<sub>A</sub>(D)</span>
+              <strong id="uAD">--</strong>
+            </div>
+            <div class="stat">
+              <span>u<sub>B</sub>(D)</span>
+              <strong id="uBD">--</strong>
+            </div>
+            <div class="stat">
+              <span>u(U)</span>
+              <strong id="uU">--</strong>
+            </div>
+            <div class="stat">
+              <span>u(I)</span>
+              <strong id="uI">--</strong>
+            </div>
+            <div class="stat">
+              <span>合成标准不确定度 u<sub>c</sub></span>
+              <strong id="ucValue">--</strong>
+            </div>
+            <div class="stat">
+              <span>相对标准不确定度</span>
+              <strong id="relativeValue">--</strong>
+            </div>
+          </div>
+
+          <div class="bar-list" aria-label="不确定度贡献">
+            <div class="bar-item">
+              <span>U</span>
+              <div class="bar-track"><div class="bar-fill" id="barU"></div></div>
+              <strong id="pctU">--</strong>
+            </div>
+            <div class="bar-item">
+              <span>D</span>
+              <div class="bar-track"><div class="bar-fill" id="barD"></div></div>
+              <strong id="pctD">--</strong>
+            </div>
+            <div class="bar-item">
+              <span>I</span>
+              <div class="bar-track"><div class="bar-fill" id="barI"></div></div>
+              <strong id="pctI">--</strong>
+            </div>
+          </div>
+        </div>
+        <p class="error" id="errorBox" role="alert"></p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const K = 9.88e6;
+    const ROOT3 = Math.sqrt(3);
+    const unitScale = { m: 1, cm: 0.01, mm: 0.001 };
+
+    const defaults = {
+      voltage: "120",
+      voltageLimit: "0.5",
+      current: "1.50",
+      currentLimit: "0.005",
+      diameters: "5.46, 5.50, 5.48, 5.52, 5.49",
+      diameterUnit: "cm",
+      diameterLimit: "0.05",
+      coverage: "2"
+    };
+
+    const els = {
+      voltage: document.querySelector("#voltage"),
+      voltageLimit: document.querySelector("#voltageLimit"),
+      current: document.querySelector("#current"),
+      currentLimit: document.querySelector("#currentLimit"),
+      diameters: document.querySelector("#diameters"),
+      diameterUnit: document.querySelector("#diameterUnit"),
+      diameterLimit: document.querySelector("#diameterLimit"),
+      diameterLimitUnit: document.querySelector("#diameterLimitUnit"),
+      coverage: document.querySelector("#coverage"),
+      sampleBtn: document.querySelector("#sampleBtn"),
+      clearBtn: document.querySelector("#clearBtn"),
+      copyBtn: document.querySelector("#copyBtn"),
+      toast: document.querySelector("#toast"),
+      finalResult: document.querySelector("#finalResult"),
+      compactResult: document.querySelector("#compactResult"),
+      emValue: document.querySelector("#emValue"),
+      expandedValue: document.querySelector("#expandedValue"),
+      dMean: document.querySelector("#dMean"),
+      uD: document.querySelector("#uD"),
+      uAD: document.querySelector("#uAD"),
+      uBD: document.querySelector("#uBD"),
+      uU: document.querySelector("#uU"),
+      uI: document.querySelector("#uI"),
+      ucValue: document.querySelector("#ucValue"),
+      relativeValue: document.querySelector("#relativeValue"),
+      barU: document.querySelector("#barU"),
+      barD: document.querySelector("#barD"),
+      barI: document.querySelector("#barI"),
+      pctU: document.querySelector("#pctU"),
+      pctD: document.querySelector("#pctD"),
+      pctI: document.querySelector("#pctI"),
+      errorBox: document.querySelector("#errorBox")
+    };
+
+    let latestText = "";
+
+    function parseNumber(value) {
+      if (typeof value !== "string") return NaN;
+      return Number(value.trim().replace("，", "."));
+    }
+
+    function parseList(value) {
+      return value
+        .replace(/[，；;]/g, ",")
+        .split(/[\s,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map(Number)
+        .filter((num) => Number.isFinite(num));
+    }
+
+    function mean(values) {
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    }
+
+    function standardUncertaintyOfMean(values, avg) {
+      if (values.length < 2) return 0;
+      const squareSum = values.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0);
+      return Math.sqrt(squareSum / (values.length * (values.length - 1)));
+    }
+
+    function sciParts(value, digits = 3) {
+      if (!Number.isFinite(value)) return "--";
+      if (value === 0) return "0";
+      const parts = value.toExponential(digits - 1).split("e");
+      const coefficient = Number(parts[0]).toString();
+      const exponent = Number(parts[1]);
+      return { coefficient, exponent };
+    }
+
+    function sci(value, digits = 3) {
+      const parts = sciParts(value, digits);
+      if (parts === "--" || parts === "0") return parts;
+      return `${parts.coefficient}×10^${parts.exponent}`;
+    }
+
+    function sciHtml(value, digits = 3) {
+      const parts = sciParts(value, digits);
+      if (parts === "--" || parts === "0") return parts;
+      return `${parts.coefficient}×10<sup>${parts.exponent}</sup>`;
+    }
+
+    function fixedByUncertainty(value, uncertainty) {
+      if (!Number.isFinite(value) || !Number.isFinite(uncertainty) || uncertainty <= 0) {
+        return { value: "--", uncertainty: "--" };
+      }
+      const exponent = Math.floor(Math.log10(Math.abs(uncertainty)));
+      const decimals = Math.min(6, Math.max(0, 1 - exponent));
+      return {
+        value: value.toFixed(decimals),
+        uncertainty: uncertainty.toFixed(decimals)
+      };
+    }
+
+    function percent(value) {
+      if (!Number.isFinite(value)) return "--";
+      return `${value.toFixed(1)}%`;
+    }
+
+    function setText(id, text) {
+      els[id].textContent = text;
+    }
+
+    function setHtml(id, html) {
+      els[id].innerHTML = html;
+    }
+
+    function setBars(parts) {
+      const total = parts.u + parts.d + parts.i;
+      const values = total > 0
+        ? {
+            u: parts.u / total * 100,
+            d: parts.d / total * 100,
+            i: parts.i / total * 100
+          }
+        : { u: 0, d: 0, i: 0 };
+      els.barU.style.width = `${values.u}%`;
+      els.barD.style.width = `${values.d}%`;
+      els.barI.style.width = `${values.i}%`;
+      els.pctU.textContent = percent(values.u);
+      els.pctD.textContent = percent(values.d);
+      els.pctI.textContent = percent(values.i);
+    }
+
+    function showError(message) {
+      els.errorBox.style.display = message ? "block" : "none";
+      els.errorBox.textContent = message || "";
+    }
+
+    function resetOutputs() {
+      ["finalResult", "compactResult", "emValue", "expandedValue", "dMean", "uD", "uAD", "uBD", "uU", "uI", "ucValue", "relativeValue"]
+        .forEach((id) => setText(id, "--"));
+      setBars({ u: 0, d: 0, i: 0 });
+      latestText = "";
+    }
+
+    function calculate() {
+      els.diameterLimitUnit.textContent = els.diameterUnit.value;
+      els.toast.textContent = "";
+
+      const U = parseNumber(els.voltage.value);
+      const I = parseNumber(els.current.value);
+      const deltaU = Math.abs(parseNumber(els.voltageLimit.value));
+      const deltaI = Math.abs(parseNumber(els.currentLimit.value));
+      const deltaDInput = Math.abs(parseNumber(els.diameterLimit.value));
+      const k = parseNumber(els.coverage.value);
+      const scale = unitScale[els.diameterUnit.value];
+      const dRaw = parseList(els.diameters.value);
+      const dValues = dRaw.map((value) => value * scale);
+
+      if (!Number.isFinite(U) || U <= 0) {
+        resetOutputs();
+        showError("请输入大于 0 的加速电压 U。");
+        return;
+      }
+      if (!Number.isFinite(I) || I <= 0) {
+        resetOutputs();
+        showError("请输入大于 0 的励磁电流 I。");
+        return;
+      }
+      if (!dValues.length || dValues.some((value) => value <= 0)) {
+        resetOutputs();
+        showError("请输入至少 1 个大于 0 的电子束直径 D。");
+        return;
+      }
+      if (!Number.isFinite(deltaU) || !Number.isFinite(deltaI) || !Number.isFinite(deltaDInput)) {
+        resetOutputs();
+        showError("请输入有效的 B 类误差限 ΔU、ΔI、ΔD。");
+        return;
+      }
+      if (!Number.isFinite(k) || k <= 0) {
+        resetOutputs();
+        showError("请输入大于 0 的覆盖因子 k。");
+        return;
+      }
+
+      showError("");
+
+      const dAvg = mean(dValues);
+      const uAD = standardUncertaintyOfMean(dValues, dAvg);
+      const uBD = deltaDInput * scale / ROOT3;
+      const uD = Math.sqrt(uAD * uAD + uBD * uBD);
+      const uU = deltaU / ROOT3;
+      const uI = deltaI / ROOT3;
+      const em = K * U / (dAvg * dAvg * I * I);
+      const relU = uU / U;
+      const relD = 2 * uD / dAvg;
+      const relI = 2 * uI / I;
+      const relCombined = Math.sqrt(relU * relU + relD * relD + relI * relI);
+      const uc = em * relCombined;
+      const expanded = k * uc;
+
+      const scaledResult = fixedByUncertainty(em / 1e11, expanded / 1e11);
+      const resultText = `(${scaledResult.value} ± ${scaledResult.uncertainty})×10^11`;
+      const resultHtml = `(${scaledResult.value} ± ${scaledResult.uncertainty})×10<sup>11</sup>`;
+
+      els.finalResult.innerHTML = `${resultHtml} <small>C·kg<sup>-1</sup>, k=${k}</small>`;
+      setText("compactResult", `n(D)=${dValues.length}，相对扩展不确定度 ${(expanded / em * 100).toFixed(2)}%`);
+      setHtml("emValue", `${sciHtml(em)} C·kg<sup>-1</sup>`);
+      setHtml("expandedValue", `${sciHtml(expanded)} C·kg<sup>-1</sup>`);
+      setText("dMean", `${dAvg.toPrecision(5)} m`);
+      setHtml("uD", `${sciHtml(uD)} m`);
+      setHtml("uAD", `${sciHtml(uAD)} m`);
+      setHtml("uBD", `${sciHtml(uBD)} m`);
+      setHtml("uU", `${sciHtml(uU)} V`);
+      setHtml("uI", `${sciHtml(uI)} A`);
+      setHtml("ucValue", `${sciHtml(uc)} C·kg<sup>-1</sup>`);
+      setText("relativeValue", `${(relCombined * 100).toFixed(3)}%`);
+      setBars({
+        u: relU * relU,
+        d: relD * relD,
+        i: relI * relI
+      });
+
+      latestText = [
+        `e/m = ${resultText} C·kg^-1 (k=${k})`,
+        `e/m = ${em.toExponential(6)} C·kg^-1`,
+        `u_c = ${uc.toExponential(6)} C·kg^-1`,
+        `U_k = ${expanded.toExponential(6)} C·kg^-1`,
+        `D_mean = ${dAvg.toExponential(6)} m`,
+        `u_A(D) = ${uAD.toExponential(6)} m`,
+        `u_B(D) = ${uBD.toExponential(6)} m`,
+        `u(D) = ${uD.toExponential(6)} m`
+      ].join("\n");
+    }
+
+    function loadDefaults() {
+      Object.entries(defaults).forEach(([key, value]) => {
+        if (els[key]) els[key].value = value;
+      });
+      calculate();
+    }
+
+    function clearData() {
+      ["voltage", "voltageLimit", "current", "currentLimit", "diameters", "diameterLimit", "coverage"].forEach((key) => {
+        els[key].value = "";
+      });
+      els.toast.textContent = "";
+      resetOutputs();
+      showError("");
+      els.voltage.focus();
+    }
+
+    async function copyResult() {
+      if (!latestText) {
+        els.toast.textContent = "当前没有可复制的结果。";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(latestText);
+        els.toast.textContent = "结果已复制。";
+      } catch {
+        els.toast.textContent = latestText;
+      }
+    }
+
+    document.querySelectorAll("input, textarea, select").forEach((node) => {
+      node.addEventListener("input", calculate);
+      node.addEventListener("change", calculate);
+    });
+    els.sampleBtn.addEventListener("click", loadDefaults);
+    els.clearBtn.addEventListener("click", clearData);
+    els.copyBtn.addEventListener("click", copyResult);
+
+    calculate();
+  </script>
+</body>
+</html>
